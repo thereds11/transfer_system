@@ -1,0 +1,2 @@
+ALTER TABLE transactions
+ADD COLUMN IF NOT EXISTS fraud_flag boolean DEFAULT FALSE;

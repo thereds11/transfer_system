@@ -41,8 +41,6 @@ def flag_transaction_as_fraud(conn, source_id):
     except Exception as e:
         logging.error(f"DB update failed: {e}")
 
-# Start Kafka consumer
-# if __name__ == "__main__":
     
 
 async def consume():
@@ -52,7 +50,7 @@ async def consume():
     consumer = AIOKafkaConsumer(
         KAFKA_TOPIC,
         bootstrap_servers=[KAFKA_BROKER],
-        group_id="fraud-consumer",
+        group_id="fraud-consumer-1",
         value_deserializer=lambda x: json.loads(x.decode('utf-8')),
     )
     await consumer.start()
@@ -67,16 +65,4 @@ async def consume():
                 logging.info("✅ Transaction passed fraud check")
     finally:
         await consumer.stop()
-    # for message in consumer:
-    #     logging.info(f"📨 Message received (partition {message.partition}, offset {message.offset})")
-    #     try:
-    #         tx = message.value
-    #         logging.info(f"🔍 Processing transaction: {tx}")
-    #         if is_fraudulent(tx):
-    #             flag_transaction_as_fraud(conn, tx.get("source_account_id"))
-    #         else:
-    #             logging.info("✅ Transaction passed fraud check")
-    #         consumer.commit()
-    #     except Exception as e:
-    #         logging.error(f"❌ Error while processing message: {e}")
 asyncio.run(consume())

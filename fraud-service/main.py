@@ -3,7 +3,7 @@ import logging
 import os
 # from kafka import KafkaConsumer
 import psycopg2
-from aiokafka import AIOKafkaConsumer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 import asyncio
 
 # Setup logging
@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 # Load env variables
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "transaction.created")
+FRAUD_TOPIC = os.getenv("FRAUD_TOPIC", "transaction.fraud")
 DB_URL = os.getenv("DB_URL", "dbname=transferdb user=transferuser password=secret host=localhost")
 
 # Connect to Postgres
@@ -41,6 +42,12 @@ def flag_transaction_as_fraud(conn, source_id):
     except Exception as e:
         logging.error(f"DB update failed: {e}")
 
+async def emit_fraud_event(producer, tx):
+    try:
+        await producer.send_and_wait(FRAUD_TOPIC, tx)
+        logging.info(f"📤 Emitted fraud event to topic '{FRAUD_TOPIC}': {tx}")
+    except Exception as e:
+        logging.error(f"❌ Failed to emit fraud event: {e}")
     
 
 async def consume():
@@ -53,16 +60,22 @@ async def consume():
         group_id="fraud-consumer-1",
         value_deserializer=lambda x: json.loads(x.decode('utf-8')),
     )
+    producer = AIOKafkaProducer(
+        bootstrap_servers=[KAFKA_BROKER],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    )
     await consumer.start()
+    await producer.start()
     try:
         async for message in consumer:
             logging.info(f"📨 Message received (partition {message.partition}, offset {message.offset})")
             tx = message.value
             logging.info(f"🔍 Processing transaction: {tx}")
             if is_fraudulent(tx):
-                flag_transaction_as_fraud(conn, tx.get("source_account_id"))
+                await emit_fraud_event(producer, tx)
             else:
                 logging.info("✅ Transaction passed fraud check")
     finally:
         await consumer.stop()
+        await producer.stop()
 asyncio.run(consume())

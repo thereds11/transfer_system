@@ -6,6 +6,8 @@ services:
       - "8081:8081"
     environment:
       - KAFKA_BROKER=kafka:9092
+      - KAFKA_TOPIC=transaction.created
+      - FRAUD_TOPIC=transaction.fraud
       - DB_URL=postgres://transferuser:secret@postgres:5432/transferdb?sslmode=disable
     depends_on:
       kafka:
@@ -25,6 +27,7 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_TOPIC=transaction.created
+      - FRAUD_TOPIC=transaction.fraud
       - DB_URL=dbname=transferdb user=transferuser password=secret host=postgres
 
   postgres:
@@ -92,7 +95,13 @@ services:
         --create --if-not-exists \
         --replication-factor 1 \
         --partitions 1 \
-        --topic transaction.created
+        --topic transaction.created \
+      echo -e 'Creating Kafka topic transaction.fraud...'
+      kafka-topics.sh --bootstrap-server kafka:9092 \
+        --create --if-not-exists \
+        --replication-factor 1 \
+        --partitions 1 \
+        --topic transaction.fraud
       echo -e 'Current Kafka topics:'
       kafka-topics.sh --bootstrap-server kafka:9092 --list
       "

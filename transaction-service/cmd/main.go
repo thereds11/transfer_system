@@ -12,9 +12,11 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 	dbConn := db.InitPostgres(cfg)
-	producer := kafka.InitKafkaProducer(cfg)
+	kafkaIO := kafka.InitKafkaProducer(cfg)
 
-	handler := routes.SetupRoutes(cfg, dbConn, producer)
+	kafka.ListenForFraudEvents(kafkaIO.Reader, dbConn)
+
+	handler := routes.SetupRoutes(cfg, dbConn, kafkaIO.Writer)
 	log.Printf("Starting server on port %s", cfg.Port)
 	http.ListenAndServe(":"+cfg.Port, handler)
 }
